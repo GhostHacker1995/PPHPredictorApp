@@ -4,7 +4,11 @@ import android.content.Context;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.content.ContentValues;
+import android.database.Cursor;
 import android.util.Log;
+
+import java.util.ArrayList;
+import java.util.List;
 
 public class DatabaseHelper extends SQLiteOpenHelper {
 
@@ -67,5 +71,30 @@ public class DatabaseHelper extends SQLiteOpenHelper {
         } else {
             Log.e(TAG, "❌ Failed to insert prediction.");
         }
+    }
+
+    public List<PredictionModel> getAllPredictions() {
+        List<PredictionModel> list = new ArrayList<>();
+        SQLiteDatabase db = this.getReadableDatabase();
+
+        Cursor cursor = db.rawQuery("SELECT * FROM " + TABLE_NAME + " ORDER BY id DESC", null);
+
+        if (cursor.moveToFirst()) {
+            do {
+                int id = cursor.getInt(cursor.getColumnIndexOrThrow(COL_ID));
+                int age = cursor.getInt(cursor.getColumnIndexOrThrow(COL_AGE));
+                int parity = cursor.getInt(cursor.getColumnIndexOrThrow(COL_PARITY));
+                int mode = cursor.getInt(cursor.getColumnIndexOrThrow(COL_MODE));
+                float hb = cursor.getFloat(cursor.getColumnIndexOrThrow(COL_HB));
+                int prevPPH = cursor.getInt(cursor.getColumnIndexOrThrow(COL_PREV_PPH));
+                int prolonged = cursor.getInt(cursor.getColumnIndexOrThrow(COL_PROLONGED));
+                String result = cursor.getString(cursor.getColumnIndexOrThrow(COL_RESULT));
+
+                list.add(new PredictionModel(id, age, parity, mode, hb, prevPPH, prolonged, result));
+            } while (cursor.moveToNext());
+        }
+
+        cursor.close();
+        return list;
     }
 }

@@ -1,5 +1,9 @@
 package com.remedius.pphpredictorapp;
 
+import com.google.firebase.firestore.FirebaseFirestore;
+import java.util.HashMap;
+import java.util.Map;
+
 import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
@@ -11,6 +15,7 @@ import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.app.AppCompatDelegate;
+import androidx.core.content.ContextCompat;
 
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.switchmaterial.SwitchMaterial;
@@ -21,32 +26,29 @@ public class MainActivity extends AppCompatActivity {
     private static final String TAG = "PPHPredictorApp";
     private static final String CUSTOM_BROADCAST = "com.remedius.pphpredictorapp.DATA_UPDATED";
 
+    private FirebaseFirestore firestore;
+
     TextInputEditText inputAge, inputParity, inputMode, inputHb, inputPrevPPH, inputProlonged;
-    MaterialButton btnPredict;
+    MaterialButton btnPredict, btnViewPredictions;
     SwitchMaterial themeSwitch;
+    DatabaseHelper dbHelper;
 
-    DatabaseHelper dbHelper; // SQLite helper
-
-    // Custom BroadcastReceiver
     private final BroadcastReceiver dataUpdateReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             if (CUSTOM_BROADCAST.equals(intent.getAction())) {
-                Log.d(TAG, "Custom broadcast received.");
-                Toast.makeText(context, "Health data updated!", Toast.LENGTH_SHORT).show();
-            } else {
-                Log.d(TAG, "Unknown broadcast: " + intent.getAction());
+                Log.d(TAG, "📩 Custom broadcast received.");
+                Toast.makeText(context, "📩 Health data updated!", Toast.LENGTH_SHORT).show();
             }
         }
     };
 
-    // System BroadcastReceiver for battery low
     private final BroadcastReceiver batteryLowReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             if (Intent.ACTION_BATTERY_LOW.equals(intent.getAction())) {
-                Toast.makeText(context, "Battery is low! Please charge your device.", Toast.LENGTH_LONG).show();
-                Log.w(TAG, "Battery low warning received.");
+                Toast.makeText(context, "⚡ Battery is low! Please charge your device.", Toast.LENGTH_LONG).show();
+                Log.w(TAG, "⚡ Battery low warning received.");
             }
         }
     };
@@ -56,7 +58,6 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        // UI initialization
         inputAge = findViewById(R.id.inputAge);
         inputParity = findViewById(R.id.inputParity);
         inputMode = findViewById(R.id.inputMode);
@@ -64,19 +65,18 @@ public class MainActivity extends AppCompatActivity {
         inputPrevPPH = findViewById(R.id.inputPrevPPH);
         inputProlonged = findViewById(R.id.inputProlonged);
         btnPredict = findViewById(R.id.btnPredict);
+        btnViewPredictions = findViewById(R.id.btnViewPredictions);
         themeSwitch = findViewById(R.id.themeSwitch);
 
-        // Initialize SQLite database helper
         dbHelper = new DatabaseHelper(this);
+        firestore = FirebaseFirestore.getInstance();
 
-        // Dark mode setup
         SharedPreferences prefs = getSharedPreferences("app_prefs", MODE_PRIVATE);
         boolean isDarkMode = prefs.getBoolean("dark_mode", false);
         AppCompatDelegate.setDefaultNightMode(
                 isDarkMode ? AppCompatDelegate.MODE_NIGHT_YES : AppCompatDelegate.MODE_NIGHT_NO
         );
         themeSwitch.setChecked(isDarkMode);
-
         themeSwitch.setOnCheckedChangeListener((buttonView, isChecked) -> {
             SharedPreferences.Editor editor = prefs.edit();
             editor.putBoolean("dark_mode", isChecked);
@@ -86,26 +86,20 @@ public class MainActivity extends AppCompatActivity {
             );
         });
 
-        // Register receivers
-        try {
-            unregisterReceiver(dataUpdateReceiver);
-        } catch (Exception ignored) {}
+        // Register broadcast receivers with Android 13+ flags
+        ContextCompat.registerReceiver(
+                this,
+                dataUpdateReceiver,
+                new IntentFilter(CUSTOM_BROADCAST),
+                ContextCompat.RECEIVER_NOT_EXPORTED
+        );
+        ContextCompat.registerReceiver(
+                this,
+                batteryLowReceiver,
+                new IntentFilter(Intent.ACTION_BATTERY_LOW),
+                ContextCompat.RECEIVER_EXPORTED
+        );
 
-        try {
-            registerReceiver(dataUpdateReceiver, new IntentFilter(CUSTOM_BROADCAST));
-            Log.d(TAG, "Custom broadcast receiver registered.");
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to register custom receiver: " + e.getMessage(), e);
-        }
-
-        try {
-            registerReceiver(batteryLowReceiver, new IntentFilter(Intent.ACTION_BATTERY_LOW));
-            Log.d(TAG, "Battery receiver registered.");
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to register battery receiver.", e);
-        }
-
-        // Predict button logic
         btnPredict.setOnClickListener(v -> {
             try {
                 if (inputAge.getText().toString().isEmpty() ||
@@ -127,44 +121,46 @@ public class MainActivity extends AppCompatActivity {
 
                 double riskScore = (age * 0.2) + (parity * 0.3) + (mode * 1.5) - (hb * 0.4)
                         + (prevPPH * 2.0) + (prolonged * 1.5);
-
                 String result = riskScore >= 5.0 ? "High Risk of PPH" : "Low Risk of PPH";
+
                 Toast.makeText(this, result, Toast.LENGTH_LONG).show();
 
-                // Save to SQLite DB
                 dbHelper.insertPrediction(age, parity, mode, hb, prevPPH, prolonged, result);
-                Log.d(TAG, "Prediction saved to SQLite database.");
+                Log.d(TAG, "✅ Prediction saved to SQLite database.");
 
-                // Send custom broadcast
+                Map<String, Object> prediction = new HashMap<>();
+                prediction.put("age", age);
+                prediction.put("parity", parity);
+                prediction.put("mode", mode);
+                prediction.put("haemoglobin", hb);
+                prediction.put("previousPPH", prevPPH);
+                prediction.put("prolongedLabor", prolonged);
+                prediction.put("result", result);
+                prediction.put("timestamp", System.currentTimeMillis());
+
+                firestore.collection("pph_predictions")
+                        .add(prediction)
+                        .addOnSuccessListener(docRef -> Log.d(TAG, "📤 Synced to Firebase: " + docRef.getId()))
+                        .addOnFailureListener(e -> Log.e(TAG, "❌ Firebase sync failed.", e));
+
                 sendBroadcast(new Intent(CUSTOM_BROADCAST));
-                Log.d(TAG, "Custom broadcast sent.");
 
             } catch (NumberFormatException e) {
-                Log.e(TAG, "Invalid number format", e);
-                Toast.makeText(this, "⚠ Enter valid numbers only", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "⚠️ Enter valid numbers only", Toast.LENGTH_SHORT).show();
             } catch (Exception e) {
-                Log.e(TAG, "Unexpected error", e);
-                Toast.makeText(this, "Unexpected error occurred", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "❌ Unexpected error occurred", Toast.LENGTH_SHORT).show();
             }
+        });
+
+        btnViewPredictions.setOnClickListener(v -> {
+            startActivity(new Intent(MainActivity.this, PredictionListActivity.class));
         });
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-
-        try {
-            unregisterReceiver(dataUpdateReceiver);
-            Log.d(TAG, "Custom receiver unregistered.");
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to unregister custom receiver.", e);
-        }
-
-        try {
-            unregisterReceiver(batteryLowReceiver);
-            Log.d(TAG, "Battery receiver unregistered.");
-        } catch (Exception e) {
-            Log.e(TAG, "Failed to unregister battery receiver.", e);
-        }
+        try { unregisterReceiver(dataUpdateReceiver); } catch (Exception ignored) {}
+        try { unregisterReceiver(batteryLowReceiver); } catch (Exception ignored) {}
     }
 }

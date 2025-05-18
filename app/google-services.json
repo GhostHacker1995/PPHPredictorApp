@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "577588784939",
+    "project_id": "pphpredictorapp",
+    "storage_bucket": "pphpredictorapp.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:577588784939:android:2c3ecda0dfb217246b1f6e",
+        "android_client_info": {
+          "package_name": "com.remedius.pphpredictorapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCvJsr8smv-bbox_W7ujmrt3YSsV_6oKQE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
