@@ -5,7 +5,13 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent">
 
-    <!-- Button Row -->
+    <!--
+        Horizontal LinearLayout that contains three buttons:
+        - Export CSV
+        - Export PDF
+        - Back to Predictor
+        Positioned at the top of the screen using ConstraintLayout constraints.
+    -->
     <LinearLayout
         android:id="@+id/buttonBar"
         android:layout_width="0dp"
@@ -17,6 +23,7 @@
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
+        <!-- Button to export data in CSV format -->
         <Button
             android:id="@+id/btnExportCSV"
             android:layout_width="wrap_content"
@@ -24,6 +31,7 @@
             android:text="Export CSV"
             android:layout_marginEnd="8dp"/>
 
+        <!-- Button to export data in PDF format -->
         <Button
             android:id="@+id/btnExportPDF"
             android:layout_width="wrap_content"
@@ -31,6 +39,7 @@
             android:text="Export PDF"
             android:layout_marginEnd="8dp"/>
 
+        <!-- Button to return to the prediction input screen -->
         <Button
             android:id="@+id/btnBack"
             android:layout_width="wrap_content"
@@ -38,7 +47,10 @@
             android:text="Back to Predictor" />
     </LinearLayout>
 
-    <!-- Prediction List -->
+    <!--
+        RecyclerView to display a list of prediction summaries.
+        Positioned below the button bar and expands to fill the remaining space.
+    -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerView"
         android:layout_width="0dp"

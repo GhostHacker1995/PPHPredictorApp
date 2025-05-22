@@ -39,10 +39,10 @@ dependencies {
     implementation(libs.material)
     implementation(libs.activity)
     implementation(libs.constraintlayout)
-
     // Firebase Firestore
     implementation("com.google.firebase:firebase-firestore:24.9.1")
-
+    // Tensorflow
+    implementation("org.tensorflow:tensorflow-lite:2.13.0")
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)

@@ -1,5 +1,6 @@
 package com.remedius.pphpredictorapp;
 
+// Firebase for syncing prediction data to Firestore
 import com.google.firebase.firestore.FirebaseFirestore;
 import java.util.HashMap;
 import java.util.Map;
@@ -27,18 +28,20 @@ public class MainActivity extends AppCompatActivity {
     private static final String CUSTOM_BROADCAST = "com.remedius.pphpredictorapp.DATA_UPDATED";
 
     private FirebaseFirestore firestore;
+    private PPHModelHelper modelHelper; // ML model helper
 
     TextInputEditText inputAge, inputParity, inputMode, inputHb, inputPrevPPH, inputProlonged;
     MaterialButton btnPredict, btnViewPredictions;
     SwitchMaterial themeSwitch;
+
     DatabaseHelper dbHelper;
 
     private final BroadcastReceiver dataUpdateReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             if (CUSTOM_BROADCAST.equals(intent.getAction())) {
-                Log.d(TAG, "📩 Custom broadcast received.");
-                Toast.makeText(context, "📩 Health data updated!", Toast.LENGTH_SHORT).show();
+                Log.d(TAG, "Custom broadcast received.");
+                Toast.makeText(context, "Health data updated!", Toast.LENGTH_SHORT).show();
             }
         }
     };
@@ -47,8 +50,8 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onReceive(Context context, Intent intent) {
             if (Intent.ACTION_BATTERY_LOW.equals(intent.getAction())) {
-                Toast.makeText(context, "⚡ Battery is low! Please charge your device.", Toast.LENGTH_LONG).show();
-                Log.w(TAG, "⚡ Battery low warning received.");
+                Toast.makeText(context, "Battery is low! Please charge your device.", Toast.LENGTH_LONG).show();
+                Log.w(TAG, "Battery low warning received.");
             }
         }
     };
@@ -70,7 +73,10 @@ public class MainActivity extends AppCompatActivity {
 
         dbHelper = new DatabaseHelper(this);
         firestore = FirebaseFirestore.getInstance();
+        modelHelper = new PPHModelHelper(getAssets());
+        // Load the model
 
+        // Theme settings
         SharedPreferences prefs = getSharedPreferences("app_prefs", MODE_PRIVATE);
         boolean isDarkMode = prefs.getBoolean("dark_mode", false);
         AppCompatDelegate.setDefaultNightMode(
@@ -86,7 +92,7 @@ public class MainActivity extends AppCompatActivity {
             );
         });
 
-        // Register broadcast receivers with Android 13+ flags
+        // Broadcasts
         ContextCompat.registerReceiver(
                 this,
                 dataUpdateReceiver,
@@ -100,6 +106,7 @@ public class MainActivity extends AppCompatActivity {
                 ContextCompat.RECEIVER_EXPORTED
         );
 
+        // Prediction logic with TFLite
         btnPredict.setOnClickListener(v -> {
             try {
                 if (inputAge.getText().toString().isEmpty() ||
@@ -108,7 +115,7 @@ public class MainActivity extends AppCompatActivity {
                         inputHb.getText().toString().isEmpty() ||
                         inputPrevPPH.getText().toString().isEmpty() ||
                         inputProlonged.getText().toString().isEmpty()) {
-                    Toast.makeText(this, "⚠️ Please fill all fields", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(this, "⚠ Please fill all fields", Toast.LENGTH_SHORT).show();
                     return;
                 }
 
@@ -119,15 +126,18 @@ public class MainActivity extends AppCompatActivity {
                 int prevPPH = Integer.parseInt(inputPrevPPH.getText().toString());
                 int prolonged = Integer.parseInt(inputProlonged.getText().toString());
 
-                double riskScore = (age * 0.2) + (parity * 0.3) + (mode * 1.5) - (hb * 0.4)
-                        + (prevPPH * 2.0) + (prolonged * 1.5);
-                String result = riskScore >= 5.0 ? "High Risk of PPH" : "Low Risk of PPH";
+                //  Use TensorFlow Lite model for prediction
+                float[] inputData = new float[]{age, parity, mode, hb, prevPPH, prolonged};
+                float score = modelHelper.predict(inputData); // between 0 and 1
+                String result = score >= 0.5 ? "High Risk of PPH" : "Low Risk of PPH";
 
-                Toast.makeText(this, result, Toast.LENGTH_LONG).show();
+                Toast.makeText(this, result + " (score: " + score + ")", Toast.LENGTH_LONG).show();
 
+                // Save locally
                 dbHelper.insertPrediction(age, parity, mode, hb, prevPPH, prolonged, result);
-                Log.d(TAG, "✅ Prediction saved to SQLite database.");
+                Log.d(TAG, "Prediction saved locally.");
 
+                // Save to Firestore
                 Map<String, Object> prediction = new HashMap<>();
                 prediction.put("age", age);
                 prediction.put("parity", parity);
@@ -136,19 +146,24 @@ public class MainActivity extends AppCompatActivity {
                 prediction.put("previousPPH", prevPPH);
                 prediction.put("prolongedLabor", prolonged);
                 prediction.put("result", result);
+                prediction.put("score", score);
                 prediction.put("timestamp", System.currentTimeMillis());
 
                 firestore.collection("pph_predictions")
                         .add(prediction)
-                        .addOnSuccessListener(docRef -> Log.d(TAG, "📤 Synced to Firebase: " + docRef.getId()))
-                        .addOnFailureListener(e -> Log.e(TAG, "❌ Firebase sync failed.", e));
+                        .addOnSuccessListener(docRef -> {
+                            Log.d(TAG, "Synced to Firebase: " + docRef.getId());
+                            Toast.makeText(this, "Synced to Firebase", Toast.LENGTH_SHORT).show();
+                        })
+                        .addOnFailureListener(e -> Log.e(TAG, " Firebase sync failed", e));
 
                 sendBroadcast(new Intent(CUSTOM_BROADCAST));
 
             } catch (NumberFormatException e) {
-                Toast.makeText(this, "⚠️ Enter valid numbers only", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "⚠ Enter valid numbers only", Toast.LENGTH_SHORT).show();
             } catch (Exception e) {
-                Toast.makeText(this, "❌ Unexpected error occurred", Toast.LENGTH_SHORT).show();
+                Toast.makeText(this, "Unexpected error occurred", Toast.LENGTH_SHORT).show();
+                Log.e(TAG, "Prediction error", e);
             }
         });
 
