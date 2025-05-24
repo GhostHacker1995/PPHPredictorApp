@@ -1,5 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- Reddish Material Theme -->
+    <color name="colorPrimary">#B71C1C</color> <!-- Dark Red -->
+    <color name="colorPrimaryVariant">#7F0000</color> <!-- Deeper red -->
+    <color name="colorOnPrimary">#FFFFFF</color> <!-- White text/icons on red -->
+    <color name="appPrimaryRed">#8B0000</color>
+
+
+    <color name="colorSecondary">#D32F2F</color> <!-- Medium red -->
+    <color name="colorSecondaryVariant">#9A0007</color> <!-- Rich red variant -->
+    <color name="colorOnSecondary">#FFFFFF</color> <!-- White text/icons on secondary -->
+
+    <!-- Basic Colors -->
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
 </resources>

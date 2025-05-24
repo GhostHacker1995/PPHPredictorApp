@@ -15,11 +15,11 @@
             android:id="@+id/appTitle"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="PPH Risk Predictor"
+            android:text="HeamaSafe"
             android:textSize="24sp"
             android:textStyle="bold"
             android:gravity="center"
-            android:textColor="#6200EE"
+            android:textColor="@color/appPrimaryRed"
             android:layout_marginBottom="16dp"/>
 
 
